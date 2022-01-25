@@ -59,7 +59,14 @@ struct CRLDataStorage: Codable {
 // REALM I/O
 extension CRLDataStorage {
     
-    private static var realm: Realm { try! Realm() }
+    private static func realm() -> Realm {
+        var config = Realm.Configuration()
+        config.fileURL!.deleteLastPathComponent()
+        config.fileURL!.appendPathComponent("ZConnectVerificaC19SDK")
+        config.fileURL!.appendPathExtension("realm")
+        config.objectTypes = [RevokedDCC.self]
+        return try! Realm(configuration: config)
+    }
     
     public static func store(crl: CRL) {
         let startTime = Log.start(key: "[CRL] [STORAGE]")
@@ -79,21 +86,21 @@ extension CRLDataStorage {
     }
     
     public static func addAll(hashes: [String]?) {
-        let storage = realm
+        let storage = realm()
         let dcc = hashes?.map { RevokedDCC(hash: $0) } ?? []
         guard !dcc.isEmpty else { return }
         try! storage.write { storage.add(dcc, update: .all) }
     }
     
     public static func removeAll(hashes: [String]?) {
-        let storage = realm
+        let storage = realm()
         guard let hashes = hashes else {return}
         let objectsToDelete = storage.objects(RevokedDCC.self).filter("hashedUVCI IN %@", hashes)
         try! storage.write { storage.delete(objectsToDelete) }
     }
     
     public static func contains(hash: String) -> Bool {
-        let storage = realm
+        let storage = realm()
         return storage
             .objects(RevokedDCC.self)
             .filter("hashedUVCI == %@", hash)
@@ -101,14 +108,13 @@ extension CRLDataStorage {
     }
     
     public static func crlTotalNumber() -> Int {
-        let storage = realm
-        return storage
-            .objects(RevokedDCC.self)
-            .count
+        let storage = realm()
+        let objects = storage.objects(RevokedDCC.self)
+        return objects.count
     }
     
     public static func clear() {
-        let storage = realm
+        let storage = realm()
         try! storage.write { storage.deleteAll() }
     }
     
